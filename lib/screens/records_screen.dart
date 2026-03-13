@@ -40,15 +40,17 @@ class _RecordsScreenState extends State<RecordsScreen> {
 
   Widget _buildRecordCard(String title, List<Widget> children) {
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
+      margin: const EdgeInsets.only(top: 10),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               title,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 8),
             ...children,
@@ -60,8 +62,70 @@ class _RecordsScreenState extends State<RecordsScreen> {
 
   Widget _kv(String key, Object? value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Text('$key: ${value ?? '-'}'),
+      padding: const EdgeInsets.only(bottom: 6),
+      child: RichText(
+        text: TextSpan(
+          style: Theme.of(context).textTheme.bodyMedium,
+          children: [
+            TextSpan(
+              text: '$key: ',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            TextSpan(text: '${value ?? '-'}'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSection({
+    required IconData icon,
+    required String title,
+    required List<Map<String, dynamic>> records,
+    required String cardTitle,
+    required List<Widget> Function(Map<String, dynamic>) fieldsBuilder,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '$title (${records.length})',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (records.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(
+                  'No records yet.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              )
+            else
+              ...records.map(
+                (record) => _buildRecordCard(
+                  cardTitle,
+                  fieldsBuilder(record),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -105,108 +169,107 @@ class _RecordsScreenState extends State<RecordsScreen> {
             return const Center(child: Text('No records saved yet.'));
           }
 
+          final firebaseStatusText = FirebaseService.isEnabled
+              ? 'Firebase status: Connected'
+              : 'Firebase status: Not configured (local save still works)';
+          final firebaseStatusColor = FirebaseService.isEnabled
+              ? Theme.of(context).colorScheme.primaryContainer
+              : Theme.of(context).colorScheme.surfaceContainerHighest;
+
           return ListView(
             padding: const EdgeInsets.all(12),
             children: [
-              Card(
+              Container(
                 margin: const EdgeInsets.only(bottom: 12),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Text(
-                    FirebaseService.isEnabled
-                        ? 'Firebase status: Connected'
-                        : 'Firebase status: Not configured (local save still works)',
-                  ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: firebaseStatusColor,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ),
-              Text(
-                'Local Check-in Records (${localCheckins.length})',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              ...localCheckins.map(
-                (record) => _buildRecordCard(
-                  'Check-in',
-                  [
-                    _kv('ID', record['id']),
-                    _kv('Student ID', record['studentId']),
-                    _kv('Check-in Timestamp', record['checkInTimestamp'] ?? record['timestamp']),
-                    _kv('Created At', record['createdAt']),
-                    _kv('QR', record['qrCodeValue']),
-                    _kv('Latitude', record['latitude']),
-                    _kv('Longitude', record['longitude']),
-                    _kv('Previous Topic', record['previousClassTopic']),
-                    _kv('Expected Topic', record['expectedTodayTopic']),
-                    _kv('Mood', record['moodBeforeClass']),
+                child: Row(
+                  children: [
+                    Icon(
+                      FirebaseService.isEnabled
+                          ? Icons.cloud_done_rounded
+                          : Icons.cloud_off_rounded,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(firebaseStatusText)),
                   ],
                 ),
+              ),
+              _buildSection(
+                icon: Icons.save_alt_rounded,
+                title: 'Local Check-in Records',
+                records: localCheckins,
+                cardTitle: 'Check-in',
+                fieldsBuilder: (record) => [
+                  _kv('ID', record['id']),
+                  _kv('Student ID', record['studentId']),
+                  _kv('Check-in Timestamp', record['checkInTimestamp'] ?? record['timestamp']),
+                  _kv('Created At', record['createdAt']),
+                  _kv('QR', record['qrCodeValue']),
+                  _kv('Latitude', record['latitude']),
+                  _kv('Longitude', record['longitude']),
+                  _kv('Previous Topic', record['previousClassTopic']),
+                  _kv('Expected Topic', record['expectedTodayTopic']),
+                  _kv('Mood', record['moodBeforeClass']),
+                ],
               ),
               const SizedBox(height: 16),
-              Text(
-                'Local Finish Class Records (${localFinishes.length})',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              ...localFinishes.map(
-                (record) => _buildRecordCard(
-                  'Finish Class',
-                  [
-                    _kv('ID', record['id']),
-                    _kv('Student ID', record['studentId']),
-                    _kv('Finish Timestamp', record['finishTimestamp'] ?? record['timestamp']),
-                    _kv('Created At', record['createdAt']),
-                    _kv('QR', record['qrCodeValue']),
-                    _kv('Latitude', record['latitude']),
-                    _kv('Longitude', record['longitude']),
-                    _kv('Learned Today', record['learnedToday']),
-                    _kv('Feedback', record['feedback']),
-                  ],
-                ),
+              _buildSection(
+                icon: Icons.task_alt_rounded,
+                title: 'Local Finish Class Records',
+                records: localFinishes,
+                cardTitle: 'Finish Class',
+                fieldsBuilder: (record) => [
+                  _kv('ID', record['id']),
+                  _kv('Student ID', record['studentId']),
+                  _kv('Finish Timestamp', record['finishTimestamp'] ?? record['timestamp']),
+                  _kv('Created At', record['createdAt']),
+                  _kv('QR', record['qrCodeValue']),
+                  _kv('Latitude', record['latitude']),
+                  _kv('Longitude', record['longitude']),
+                  _kv('Learned Today', record['learnedToday']),
+                  _kv('Feedback', record['feedback']),
+                ],
               ),
               const SizedBox(height: 16),
-              Text(
-                'Firebase Check-in Records (${firebaseCheckins.length})',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              ...firebaseCheckins.map(
-                (record) => _buildRecordCard(
-                  'Cloud Check-in',
-                  [
-                    _kv('ID', record['id']),
-                    _kv('Student ID', record['studentId']),
-                    _kv('Check-in Timestamp', record['checkInTimestamp']),
-                    _kv('Created At', record['createdAt']),
-                    _kv('QR', record['qrCodeValue']),
-                    _kv('Latitude', record['latitude']),
-                    _kv('Longitude', record['longitude']),
-                    _kv('Previous Topic', record['previousClassTopic']),
-                    _kv('Expected Topic', record['expectedTodayTopic']),
-                    _kv('Mood', record['moodBeforeClass']),
-                  ],
-                ),
+              _buildSection(
+                icon: Icons.cloud_done_rounded,
+                title: 'Firebase Check-in Records',
+                records: firebaseCheckins,
+                cardTitle: 'Cloud Check-in',
+                fieldsBuilder: (record) => [
+                  _kv('ID', record['id']),
+                  _kv('Student ID', record['studentId']),
+                  _kv('Check-in Timestamp', record['checkInTimestamp']),
+                  _kv('Created At', record['createdAt']),
+                  _kv('QR', record['qrCodeValue']),
+                  _kv('Latitude', record['latitude']),
+                  _kv('Longitude', record['longitude']),
+                  _kv('Previous Topic', record['previousClassTopic']),
+                  _kv('Expected Topic', record['expectedTodayTopic']),
+                  _kv('Mood', record['moodBeforeClass']),
+                ],
               ),
               const SizedBox(height: 16),
-              Text(
-                'Firebase Finish Class Records (${firebaseFinishes.length})',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              ...firebaseFinishes.map(
-                (record) => _buildRecordCard(
-                  'Cloud Finish Class',
-                  [
-                    _kv('ID', record['id']),
-                    _kv('Student ID', record['studentId']),
-                    _kv('Finish Timestamp', record['finishTimestamp']),
-                    _kv('Created At', record['createdAt']),
-                    _kv('QR', record['qrCodeValue']),
-                    _kv('Latitude', record['latitude']),
-                    _kv('Longitude', record['longitude']),
-                    _kv('Learned Today', record['learnedToday']),
-                    _kv('Feedback', record['feedback']),
-                  ],
-                ),
+              _buildSection(
+                icon: Icons.cloud_sync_rounded,
+                title: 'Firebase Finish Class Records',
+                records: firebaseFinishes,
+                cardTitle: 'Cloud Finish Class',
+                fieldsBuilder: (record) => [
+                  _kv('ID', record['id']),
+                  _kv('Student ID', record['studentId']),
+                  _kv('Finish Timestamp', record['finishTimestamp']),
+                  _kv('Created At', record['createdAt']),
+                  _kv('QR', record['qrCodeValue']),
+                  _kv('Latitude', record['latitude']),
+                  _kv('Longitude', record['longitude']),
+                  _kv('Learned Today', record['learnedToday']),
+                  _kv('Feedback', record['feedback']),
+                ],
               ),
             ],
           );

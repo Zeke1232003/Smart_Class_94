@@ -106,8 +106,45 @@ class _FinishClassScreenState extends State<FinishClassScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  Widget _statusTile({
+    required IconData icon,
+    required String title,
+    required bool ready,
+    required String value,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: ready
+            ? colorScheme.primaryContainer.withValues(alpha: 0.55)
+            : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: ready ? colorScheme.primary : colorScheme.outline),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '$title: $value',
+              style: TextStyle(
+                color: ready ? colorScheme.onPrimaryContainer : colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final qrReady = _qrValue != null && _qrValue!.isNotEmpty;
+    final gpsReady = _latitude != null && _longitude != null;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Finish Class (After Class)')),
       body: SingleChildScrollView(
@@ -115,60 +152,110 @@ class _FinishClassScreenState extends State<FinishClassScreen> {
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextFormField(
-                controller: _learnedController,
-                decoration: const InputDecoration(
-                  labelText: 'What I learned today',
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'After Class Reflection',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Share what you learned, your feedback, then capture QR and GPS to finish.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                validator: (value) =>
-                    (value == null || value.trim().isEmpty) ? 'Required' : null,
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _feedbackController,
-                decoration: const InputDecoration(
-                  labelText: 'Feedback',
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      TextFormField(
+                        controller: _learnedController,
+                        decoration: const InputDecoration(
+                          labelText: 'What I learned today',
+                        ),
+                        validator: (value) =>
+                            (value == null || value.trim().isEmpty) ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _feedbackController,
+                        decoration: const InputDecoration(
+                          labelText: 'Feedback',
+                        ),
+                        validator: (value) =>
+                            (value == null || value.trim().isEmpty) ? 'Required' : null,
+                      ),
+                    ],
+                  ),
                 ),
-                validator: (value) =>
-                    (value == null || value.trim().isEmpty) ? 'Required' : null,
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _scanQr,
-                      child: const Text('Scan QR'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _captureLocation,
-                      child: const Text('Get GPS'),
-                    ),
-                  ),
-                ],
               ),
               const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text('QR: ${_qrValue ?? '-'}'),
-              ),
-              const SizedBox(height: 6),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'GPS: ${_latitude?.toStringAsFixed(6) ?? '-'}, ${_longitude?.toStringAsFixed(6) ?? '-'}',
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _scanQr,
+                              icon: const Icon(Icons.qr_code_scanner_rounded),
+                              label: const Text('Scan QR'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _captureLocation,
+                              icon: const Icon(Icons.my_location_rounded),
+                              label: const Text('Get GPS'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _statusTile(
+                        icon: Icons.qr_code_2_rounded,
+                        title: 'QR',
+                        ready: qrReady,
+                        value: _qrValue ?? 'Not scanned',
+                      ),
+                      const SizedBox(height: 8),
+                      _statusTile(
+                        icon: Icons.location_on_rounded,
+                        title: 'GPS',
+                        ready: gpsReady,
+                        value: gpsReady
+                            ? '${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}'
+                            : 'Not captured',
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
+                child: ElevatedButton.icon(
                   onPressed: _submit,
-                  child: const Text('Submit Finish Class'),
+                  icon: const Icon(Icons.check_circle_outline_rounded),
+                  label: const Text('Submit Finish Class'),
                 ),
               ),
             ],
