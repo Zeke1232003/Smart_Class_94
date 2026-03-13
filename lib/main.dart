@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import 'services/firebase_service.dart';
 import 'screens/checkin_screen.dart';
 import 'screens/finish_class_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/records_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {}
+  await FirebaseService.initialize();
   runApp(const SmartClassApp());
 }
 

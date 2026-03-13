@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../services/firebase_service.dart';
 import '../services/storage_service.dart';
 import 'qr_scanner_screen.dart';
 
@@ -74,9 +75,15 @@ class _FinishClassScreenState extends State<FinishClassScreen> {
       return;
     }
 
+    final now = DateTime.now();
+    final nowIso = now.toIso8601String();
+
     final record = {
+      'id': now.microsecondsSinceEpoch.toString(),
+      'studentId': null,
       'type': 'finish',
-      'timestamp': DateTime.now().toIso8601String(),
+      'finishTimestamp': nowIso,
+      'createdAt': nowIso,
       'qrCodeValue': _qrValue,
       'latitude': _latitude,
       'longitude': _longitude,
@@ -85,8 +92,13 @@ class _FinishClassScreenState extends State<FinishClassScreen> {
     };
 
     await StorageService.saveFinish(record);
+    final cloudSaved = await FirebaseService.saveFinish(record);
     if (!mounted) return;
-    _showMessage('Finish Class saved successfully.');
+    _showMessage(
+      cloudSaved
+          ? 'Finish Class saved (Local + Firebase).'
+          : 'Finish Class saved locally. Firebase not configured yet.',
+    );
     Navigator.pop(context);
   }
 

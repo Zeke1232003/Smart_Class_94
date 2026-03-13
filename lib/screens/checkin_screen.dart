@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../services/firebase_service.dart';
 import '../services/storage_service.dart';
 import 'qr_scanner_screen.dart';
 
@@ -75,9 +76,15 @@ class _CheckInScreenState extends State<CheckInScreen> {
       return;
     }
 
+    final now = DateTime.now();
+    final nowIso = now.toIso8601String();
+
     final record = {
+      'id': now.microsecondsSinceEpoch.toString(),
+      'studentId': null,
       'type': 'checkin',
-      'timestamp': DateTime.now().toIso8601String(),
+      'checkInTimestamp': nowIso,
+      'createdAt': nowIso,
       'qrCodeValue': _qrValue,
       'latitude': _latitude,
       'longitude': _longitude,
@@ -87,8 +94,13 @@ class _CheckInScreenState extends State<CheckInScreen> {
     };
 
     await StorageService.saveCheckin(record);
+    final cloudSaved = await FirebaseService.saveCheckin(record);
     if (!mounted) return;
-    _showMessage('Check-in saved successfully.');
+    _showMessage(
+      cloudSaved
+          ? 'Check-in saved (Local + Firebase).'
+          : 'Check-in saved locally. Firebase not configured yet.',
+    );
     Navigator.pop(context);
   }
 

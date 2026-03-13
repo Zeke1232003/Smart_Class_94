@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/firebase_service.dart';
 import '../services/storage_service.dart';
 
 class RecordsScreen extends StatefulWidget {
@@ -19,12 +20,22 @@ class _RecordsScreenState extends State<RecordsScreen> {
   }
 
   Future<Map<String, List<Map<String, dynamic>>>> _loadRecords() async {
-    final checkins = await StorageService.getCheckinRecords();
-    final finishes = await StorageService.getFinishRecords();
+    final localCheckins = await StorageService.getCheckinRecords();
+    final localFinishes = await StorageService.getFinishRecords();
+    final firebaseCheckins = await FirebaseService.getCheckinRecords();
+    final firebaseFinishes = await FirebaseService.getFinishRecords();
     return {
-      'checkins': checkins,
-      'finishes': finishes,
+      'localCheckins': localCheckins,
+      'localFinishes': localFinishes,
+      'firebaseCheckins': firebaseCheckins,
+      'firebaseFinishes': firebaseFinishes,
     };
+  }
+
+  void _refresh() {
+    setState(() {
+      _recordsFuture = _loadRecords();
+    });
   }
 
   Widget _buildRecordCard(String title, List<Widget> children) {
@@ -57,7 +68,16 @@ class _RecordsScreenState extends State<RecordsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Saved Records')),
+      appBar: AppBar(
+        title: const Text('Saved Records'),
+        actions: [
+          IconButton(
+            onPressed: _refresh,
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
+          ),
+        ],
+      ),
       body: FutureBuilder<Map<String, List<Map<String, dynamic>>>>(
         future: _recordsFuture,
         builder: (context, snapshot) {
@@ -69,26 +89,49 @@ class _RecordsScreenState extends State<RecordsScreen> {
             return Center(child: Text('Failed to load records: ${snapshot.error}'));
           }
 
-          final checkins = snapshot.data?['checkins'] ?? <Map<String, dynamic>>[];
-          final finishes = snapshot.data?['finishes'] ?? <Map<String, dynamic>>[];
+          final localCheckins =
+              snapshot.data?['localCheckins'] ?? <Map<String, dynamic>>[];
+          final localFinishes =
+              snapshot.data?['localFinishes'] ?? <Map<String, dynamic>>[];
+          final firebaseCheckins =
+              snapshot.data?['firebaseCheckins'] ?? <Map<String, dynamic>>[];
+          final firebaseFinishes =
+              snapshot.data?['firebaseFinishes'] ?? <Map<String, dynamic>>[];
 
-          if (checkins.isEmpty && finishes.isEmpty) {
+          if (localCheckins.isEmpty &&
+              localFinishes.isEmpty &&
+              firebaseCheckins.isEmpty &&
+              firebaseFinishes.isEmpty) {
             return const Center(child: Text('No records saved yet.'));
           }
 
           return ListView(
             padding: const EdgeInsets.all(12),
             children: [
+              Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(
+                    FirebaseService.isEnabled
+                        ? 'Firebase status: Connected'
+                        : 'Firebase status: Not configured (local save still works)',
+                  ),
+                ),
+              ),
               Text(
-                'Check-in Records (${checkins.length})',
+                'Local Check-in Records (${localCheckins.length})',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
-              ...checkins.map(
+              ...localCheckins.map(
                 (record) => _buildRecordCard(
                   'Check-in',
                   [
-                    _kv('Timestamp', record['timestamp']),
+                    _kv('ID', record['id']),
+                    _kv('Student ID', record['studentId']),
+                    _kv('Check-in Timestamp', record['checkInTimestamp'] ?? record['timestamp']),
+                    _kv('Created At', record['createdAt']),
                     _kv('QR', record['qrCodeValue']),
                     _kv('Latitude', record['latitude']),
                     _kv('Longitude', record['longitude']),
@@ -100,15 +143,63 @@ class _RecordsScreenState extends State<RecordsScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Finish Class Records (${finishes.length})',
+                'Local Finish Class Records (${localFinishes.length})',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
-              ...finishes.map(
+              ...localFinishes.map(
                 (record) => _buildRecordCard(
                   'Finish Class',
                   [
-                    _kv('Timestamp', record['timestamp']),
+                    _kv('ID', record['id']),
+                    _kv('Student ID', record['studentId']),
+                    _kv('Finish Timestamp', record['finishTimestamp'] ?? record['timestamp']),
+                    _kv('Created At', record['createdAt']),
+                    _kv('QR', record['qrCodeValue']),
+                    _kv('Latitude', record['latitude']),
+                    _kv('Longitude', record['longitude']),
+                    _kv('Learned Today', record['learnedToday']),
+                    _kv('Feedback', record['feedback']),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Firebase Check-in Records (${firebaseCheckins.length})',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              ...firebaseCheckins.map(
+                (record) => _buildRecordCard(
+                  'Cloud Check-in',
+                  [
+                    _kv('ID', record['id']),
+                    _kv('Student ID', record['studentId']),
+                    _kv('Check-in Timestamp', record['checkInTimestamp']),
+                    _kv('Created At', record['createdAt']),
+                    _kv('QR', record['qrCodeValue']),
+                    _kv('Latitude', record['latitude']),
+                    _kv('Longitude', record['longitude']),
+                    _kv('Previous Topic', record['previousClassTopic']),
+                    _kv('Expected Topic', record['expectedTodayTopic']),
+                    _kv('Mood', record['moodBeforeClass']),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Firebase Finish Class Records (${firebaseFinishes.length})',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              ...firebaseFinishes.map(
+                (record) => _buildRecordCard(
+                  'Cloud Finish Class',
+                  [
+                    _kv('ID', record['id']),
+                    _kv('Student ID', record['studentId']),
+                    _kv('Finish Timestamp', record['finishTimestamp']),
+                    _kv('Created At', record['createdAt']),
                     _kv('QR', record['qrCodeValue']),
                     _kv('Latitude', record['latitude']),
                     _kv('Longitude', record['longitude']),
